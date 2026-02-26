@@ -59,7 +59,24 @@ DeviceProcessEvents
 ```
 ![execution logs](/images-sus/script-logs.png)
 
-It looks like they were. I sign into the VM and pass the scripts off to the malware team. They come back with a description of each one:
+It looks like they were. And looks as though even the user executed the portscan script themself. After speaking with the individual, it seems they clicked on an external link and then their screen just went blank.
+I sign into the VM and pass the scripts off to the malware team. They come back with a description of each one:
 - portscan.ps1: Scans a specified range of IP addresses for open ports from a list of common ports and logs the results.
 - eicar.ps1: Creates an EICAR file which is used to test antivirus solutions and logs the process.
 - pwncrypt.ps1: Encrypts files in a selected user's desktop folder, simulating ransomware activity, and creates a ransom note with decryption instructions.
+
+# Containment, Eradication and Recovery
+The machine was isolated in MDE and an anti-malware scan was run. After the machine came back clean, we removed it from isolation.
+
+# Post-Incident Activities
+Had the user go through extra rounds of cybersecurity awareness and training and upgraded our Cyber awareness training package from KnowBe4.
+
+Also started implementation of a policy that restricts the use of PowerShell for non-essential users.
+
+# Closure
+I filled the activity log with a summary of my findings, labeled it a `True Positive` and closed it out.
+```
+Alert triggered for PowerShell Invoke-WebRequest activity on host ktran-vm, indicating remote script downloads from GitHub. Investigation confirmed three scripts (eicar.ps1, portscan.ps1, pwncrypt.ps1) were downloaded and executed using -ExecutionPolicy Bypass. User interview determined the activity began after clicking an external link. The device was isolated in MDE and a full anti-malware scan was completed with no evidence of persistence or lateral movement. Scripts were analyzed by the malware team and confirmed to simulate testing, scanning, and ransomware behavior. Preventive actions included enhanced user training and implementation of restricted PowerShell usage policies.
+```
+
+![Incident Closed](/images-sus/close.png)
