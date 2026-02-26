@@ -31,12 +31,15 @@ Configure Entity Mappings:
 - Stop running query after alert is generated (24 hours)
 
 After the alerts creation, awhile later an incident arises.
+
 ![incident](/images-sus/incident.png)
 
 I assign the incident to myself and label it active.
+
 ![incident assign](/images-sus/incident-assigned.png)
 
 Further investigation reveals 3 entities.
+
 ![incident visual](/images-sus/investigate.png)
 
 The entities involved are as follows.
@@ -57,6 +60,7 @@ DeviceProcessEvents
 | project TimeGenerated, AccountName, DeviceName, FileName, ProcessCommandLine
 | summarize count() by AccountName, DeviceName, FileName, ProcessCommandLine
 ```
+
 ![execution logs](/images-sus/script-logs.png)
 
 It looks like they were. And looks as though even the user executed the portscan script themself. After speaking with the individual, it seems they clicked on an external link and then their screen just went blank.
@@ -74,7 +78,7 @@ Had the user go through extra rounds of cybersecurity awareness and training and
 Also started implementation of a policy that restricts the use of PowerShell for non-essential users.
 
 # Closure
-I filled the activity log with a summary of my findings, labeled it a `True Positive` and closed it out.
+I filled the activity log with a summary of my findings, labeled the incident a `True Positive` and closed it.
 ```
 Alert triggered for PowerShell Invoke-WebRequest activity on host ktran-vm, indicating remote script downloads from GitHub. Investigation confirmed three scripts (eicar.ps1, portscan.ps1, pwncrypt.ps1) were downloaded and executed using -ExecutionPolicy Bypass. User interview determined the activity began after clicking an external link. The device was isolated in MDE and a full anti-malware scan was completed with no evidence of persistence or lateral movement. Scripts were analyzed by the malware team and confirmed to simulate testing, scanning, and ransomware behavior. Preventive actions included enhanced user training and implementation of restricted PowerShell usage policies.
 ```
