@@ -39,7 +39,7 @@ I assign the incident to myself and label it active.
 
 ![incident assign](/images-sus/incident-assigned.png)
 
-Further investigation reveals 3 entities.
+Further investigation reveals 3 suspicious entities and the `ktran-vm` virtual machine.
 
 ![incident visual](/images-sus/investigate.png)
 
