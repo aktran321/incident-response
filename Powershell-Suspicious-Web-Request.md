@@ -30,7 +30,8 @@ Configure Entity Mappings:
 - Group all alerts into a single Incident per 24 hours
 - Stop running query after alert is generated (24 hours)
 
-After the alerts creation, awhile later an incident arises.
+# Incident
+The above alert was triggered, causing the creation of an incident in Microsoft Sentinel.
 
 ![incident](/images-sus/incident.png)
 
