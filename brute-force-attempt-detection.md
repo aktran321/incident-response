@@ -61,9 +61,13 @@ An internal IP address, 10.0.0.8, generated failed logon attempts against ridge-
 
 A review of LogonSuccess events during and after the timeframe of the failed attempts found no successful logins associated with any of the external IP addresses, and no evidence of credential compromise or post-authentication malicious activity was identified. The observed activity is consistent with automated internet-based brute-force scanning against exposed services.
 ```
-Close out the alert in Sentinel and label the incident as a true positive. Brute force was attempted but there was no successful logon.
 
+# Post Incident Activities
+- Document findings and lessons learned
+- Update policies and tools such as creating a company policy for hardening VMs to not allow wide open NSGs. 
 
-
+# Closure
+- Review and confirm incident resolution
+- Close out the alert in Sentinel and label the incident as a true positive. Brute force was attempted but there was no successful logon.
 
 
