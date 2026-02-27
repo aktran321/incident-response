@@ -1,83 +1,138 @@
-# Explanation
-Sometimes corporations have policies against working outside of designated geographic regions, account sharing (this should be standard), or use of non-corporate VPNs. The following scenario will be used to detect unusual logon behavior by creating an incident if a user's login patterns are too erratic. “Too erratic” can be defined as logging in from multiple geographic regions within a given time period.
+# Incident Response Report  
+## Potential Impossible Travel – Azure Sign-In Anomaly
 
-Whenever a user logs into Azure or authenticates with their main Azure account, logs will be created in the “SigninLogs” table, which is being forwarded to the Log Analytics Workspace being used by Microsoft Sentinel, our SIEM. Within Sentinel, we will define an alert to trigger whenever a user logs into more than one location in a 7 day time period. Not all triggers will be true positives, but it will give us a chance to investigate.
+---
+
+# 1. Preparation
+
+The organization enforces policies restricting authentication from unauthorized geographic regions, prohibiting account sharing, and limiting the use of non-corporate VPN services.
+
+To support these controls, authentication events from Microsoft Entra ID are forwarded to Microsoft Sentinel through the `SigninLogs` table in the Log Analytics Workspace. An analytic rule was created to detect anomalous login behavior commonly referred to as **“impossible travel.”**
+
+Impossible travel occurs when a user account authenticates from geographically distant locations within a timeframe that is not physically possible.
+
+---
+
+# 2. Detection and Analysis
 
 ## Alert Creation
-```
+
+The following KQL query was developed to identify users authenticating from more than two distinct geographic locations within a 7-day period:
+
+```kql
 // Locate Instances of Potential Impossible Travel
 let TimePeriodThreshold = timespan(7d); // Change to how far back you want to look
 let NumberOfDifferentLocationsAllowed = 2;
 SigninLogs
 | where TimeGenerated > ago(TimePeriodThreshold)
-| summarize Count = count() by UserPrincipalName, UserId, City = tostring(parse_json(LocationDetails).city), State = tostring(parse_json(LocationDetails).state), Country = tostring(parse_json(LocationDetails).countryOrRegion)
+| summarize Count = count() by UserPrincipalName, UserId,
+    City = tostring(parse_json(LocationDetails).city),
+    State = tostring(parse_json(LocationDetails).state),
+    Country = tostring(parse_json(LocationDetails).countryOrRegion)
 | project UserPrincipalName, UserId, City, State, Country
 | summarize PotentialImpossibleTravelInstances = count() by UserPrincipalName, UserId
 | where PotentialImpossibleTravelInstances > NumberOfDifferentLocationsAllowed
 ```
-Analytics Rule Settings:
-Name: 
-Description: 
-Enable the Rule
-Use ChatGPT to set Mitre ATT&CK Framework Categories based on the query
-Run query every 4 hours
-Lookup data for last 5 hours (can define in query)
-Stop running query after alert is generated == Yes
-Configure Entity Mappings:	
-Account
-Identifier: AadUserId, Value: UserId
-Identifier: DisplayName, Value: UserPrincipalName	
-Automatically create an Incident if the rule is triggered
-Group all alerts into a single Incident per 24 hours
-Stop running query after alert is generated (24 hours)
+
+### Analytics Rule Configuration
+
+- Query runs every 4 hours  
+- Looks back 5 hours of data  
+- Automatically creates an incident when triggered  
+- Groups alerts into a single incident per 24 hours  
+- Stops running after alert generation (24 hours)  
+- Entity mapping configured for:
+  - `AadUserId → UserId`
+  - `DisplayName → UserPrincipalName`
+
+---
 
 ## Incident
-An incident has appeared in Microsoft Sentinel related to the alert created above. 
 
-<img src="incident" alt="incident creation" width="400">
+An incident was generated in Microsoft Sentinel based on the analytic rule.
 
-I assigned the incident to myself and mark it as active.
+<img src="https://github.com/aktran321/incident-response/blob/main/images-it/incident.png" alt="incident creation" width="400">
 
-<img src="" alt="investigation visual" width="400">
+The incident was assigned and marked as **Active** for investigation.
 
-The incident involves over 30 entities with potential impossible time travel. For this exercise I will focus on two entities.
+<img src="https://github.com/aktran321/incident-response/blob/main/images-it/investigate.png" alt="investigation visual" width="400">
 
-## Detection and Analysis
-I investigate each of the UserPrincipalNames with the query below. 
-```
+The incident contained over 30 entities flagged for potential impossible travel. Two users were prioritized for investigation.
+
+---
+
+## Investigation
+
+The following query was used to analyze each flagged user:
+
+```kql
 // Investigate Potential Impossible Travel Instances
 let TargetUserPrincipalName = "5516e674dd5f510acb1143bc61b03226157b77a96149d175567fa28ff5141059@lognpacific.com"; // (UserPrincipalName)
 let TimePeriodThreshold = timespan(7d); // Change to how far back you want to look
 SigninLogs
 | where TimeGenerated > ago(TimePeriodThreshold)
 | where UserPrincipalName == TargetUserPrincipalName
-| project TimeGenerated, UserPrincipalName, City = tostring(parse_json(LocationDetails).city), State = tostring(parse_json(LocationDetails).state), Country = tostring(parse_json(LocationDetails).countryOrRegion)
+| project TimeGenerated, UserPrincipalName,
+    City = tostring(parse_json(LocationDetails).city),
+    State = tostring(parse_json(LocationDetails).state),
+    Country = tostring(parse_json(LocationDetails).countryOrRegion)
 | order by TimeGenerated desc
 ```
 
-<img src="" alt="First user sign in" width="400">
+<img src="https://github.com/aktran321/incident-response/blob/main/images-it/user1-log.png" alt="First user sign in" width="700">
 
-In just the first couple logs, the user `5516e674dd5f510acb1143bc61b03226157b77a96149d175567fa28ff5141059@lognpacific.com` logged in from Boydton, Virginia and New York, New York within seconds of each other. 
-This is of course not physically possible.
+### Findings – User 1
 
-Another user `b0f7738e0e146afe1560ee169046022c1a9a8c6ca9e77307571a8e3990e121f4@lognpacific.com` logged in from 4 different cities located on opposite ends of the US in a span of 12 hours.
+User `5516e674dd5f510acb1143bc61b03226157b77a96149d175567fa28ff5141059@lognpacific.com` authenticated from Boydton, Virginia and New York, New York within seconds of each other. This pattern is not physically possible and indicates highly anomalous login behavior.
 
-<img src="" alt="Second user sign in" width="400">
+---
 
-Given the evidence, this incident is labeled a true positive.
+### Findings – User 2
 
-## Containment, Eradication and Recovery
+User `b0f7738e0e146afe1560ee169046022c1a9a8c6ca9e77307571a8e3990e121f4@lognpacific.com` authenticated from four geographically distant U.S. cities within a 12-hour period, spanning opposite regions of the country.
 
-The two user accounts in question have been disabled from Entra ID and management was contacted.
+<img src="https://github.com/aktran321/incident-response/blob/main/images-it/user2-log.png" alt="Second user sign in" width="700">
 
-There is currently no threat to remove the systems in place, but further direction is pending from management.
+The geographic dispersion and compressed timeframe strongly suggest potential credential compromise, VPN misuse, or account sharing.
 
-## Post-Incident Activities
-Explored the option of creating a geo-fencing policy in Azure to prevent logins from certain regions.
+Based on the evidence collected, the incident was classified as a **True Positive**.
 
-## Closure
-Updated the activity log for the incident and labeled it a true positive.
+---
 
-<img src="" alt="Second user sign in" width="400">
+# 3. Containment
 
-<img src="" alt="Second user sign in" width="400">
+- Both user accounts were disabled in Entra ID.
+- Management was notified of the findings.
+- Monitoring was increased for related authentication activity.
+
+---
+
+# 4. Eradication and Recovery
+
+- Awaiting direction from management regarding credential resets.
+- Recommended enforcing password resets and validating MFA configurations.
+- No evidence of lateral movement or additional malicious activity was identified.
+- Business operations remain unaffected.
+
+---
+
+# 5. Post-Incident Activities (Lessons Learned)
+
+- Evaluated implementation of Conditional Access policies.
+- Explored geo-fencing restrictions to prevent authentication from unauthorized regions.
+- Reviewed alert thresholds to balance detection capability and false positives.
+- Updated the incident activity log and documentation.
+
+---
+
+# Closure
+
+The incident record was updated to reflect findings and response actions.
+
+<img src="https://github.com/aktran321/incident-response/blob/main/images-it/close.png" alt="activity log" width="400">
+
+The incident was marked:
+
+**Closed – True Positive**
+
+<img src="https://github.com/aktran321/incident-response/blob/main/images-it/activity-log.png" alt="incident closed" width="400">
