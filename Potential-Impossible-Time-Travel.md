@@ -129,10 +129,10 @@ Based on the evidence collected, the incident was classified as a **True Positiv
 
 The incident record was updated to reflect findings and response actions.
 
-<img src="https://github.com/aktran321/incident-response/blob/main/images-it/close.png" alt="activity log" width="400">
+<img src="https://github.com/aktran321/incident-response/blob/main/images-it/activity-log.png" alt="activity log" width="400">
 
 The incident was marked:
 
 **Closed – True Positive**
 
-<img src="https://github.com/aktran321/incident-response/blob/main/images-it/activity-log.png" alt="incident closed" width="400">
+<img src="https://github.com/aktran321/incident-response/blob/main/images-it/close.png" alt="incident closed" width="400">
