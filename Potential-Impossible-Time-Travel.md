@@ -73,7 +73,11 @@ The two user accounts in question have been disabled from Entra ID and managemen
 There is currently no threat to remove the systems in place, but further direction is pending from management.
 
 ## Post-Incident Activities
-Created a geo-fencing policy in Azure to prevent logins from certain regions.
+Explored the option of creating a geo-fencing policy in Azure to prevent logins from certain regions.
 
 ## Closure
 Updated the activity log for the incident and labeled it a true positive.
+
+<img src="" alt="Second user sign in" width="400">
+
+<img src="" alt="Second user sign in" width="400">
